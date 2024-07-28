@@ -9,6 +9,7 @@ const {
     sha256,
     bytesToHex
 } = require("../utils");
+const {Slice} = require("./Slice");
 
 const reachBocMagicPrefix = hexToBytes('B5EE9C72');
 const leanBocMagicPrefix = hexToBytes('68ff65f3');
@@ -77,10 +78,11 @@ class Cell {
     getMaxDepth() {
         let maxDepth = 0;
         if (this.refs.length > 0) {
-            for (let k in this.refs) {
-                const i = this.refs[k];
-                if (i.getMaxDepth() > maxDepth) {
-                    maxDepth = i.getMaxDepth();
+            for (let k = 0; k < this.refs.length; k++) {
+                const child = this.refs[k];
+                let childMaxDepth = child.getMaxDepth();
+                if (childMaxDepth > maxDepth) {
+                    maxDepth = childMaxDepth;
                 }
             }
             maxDepth = maxDepth + 1;
@@ -158,6 +160,11 @@ class Cell {
         return new Uint8Array(
             await sha256(await this.getRepr())
         );
+    }
+
+    beginParse() {
+        const refs = this.refs.map(ref => ref.beginParse());
+        return new Slice(this.bits.array.slice(), this.bits.length, refs);
     }
 
     /**

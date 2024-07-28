@@ -10,7 +10,7 @@ const NFT_ITEM_CODE_HEX = 'B5EE9C7241020D010001D0000114FF00F4A413F4BCF2C80B01020
 class NftItem extends Contract {
     /**
      * @param provider
-     * @param options   {{index: number, collectionAddress: Address, address?: Address | string, code?: Cell}}
+     * @param options   {{index: number|BN, collectionAddress: Address, address?: Address | string, code?: Cell}}
      */
     constructor(provider, options) {
         options.wc = 0;
@@ -33,25 +33,34 @@ class NftItem extends Contract {
     }
 
     /**
-     * @return {Promise<{isInitialized: boolean, index: number, collectionAddress: Address|null, ownerAddress: Address|null, contentCell: Cell, contentUri: string|null}>}
+     * @return {Promise<{isInitialized: boolean, index: number, itemIndex: BN, collectionAddress: Address|null, ownerAddress: Address|null, contentCell: Cell, contentUri: string|null}>}
      */
     async getData() {
         const myAddress = await this.getAddress();
         const result = await this.provider.call2(myAddress.toString(), 'get_nft_data');
 
         const isInitialized = result[0].toNumber() === -1;
-        const index = result[1].toNumber();
+        const itemIndex = result[1];
+        let index = NaN;
+        try {
+            index = itemIndex.toNumber();
+        } catch (e) {
+        }
         const collectionAddress =  parseAddress(result[2]);
         const ownerAddress = isInitialized ? parseAddress(result[3]) : null;
         const contentCell = result[4];
 
-        const contentUri = (isInitialized && collectionAddress === null) ? parseOffchainUriCell(contentCell) : null; // single NFT without collection
+        let contentUri = null;
+        try {
+            contentUri = (isInitialized && collectionAddress === null) ? parseOffchainUriCell(contentCell) : null; // single NFT without collection
+        } catch (e) {
+        }
 
-        return {isInitialized, index, collectionAddress, ownerAddress, contentCell, contentUri};
+        return {isInitialized, index, itemIndex, collectionAddress, ownerAddress, contentCell, contentUri};
     }
 
     /**
-     * @param params    {{queryId?: number, newOwnerAddress: Address, forwardAmount?: BN, forwardPayload?: Uint8Array, responseAddress: Address}}
+     * @param params    {{queryId?: number, newOwnerAddress: Address, forwardAmount?: BN, forwardPayload?: Uint8Array | Cell, responseAddress: Address}}
      */
     async createTransferBody(params) {
         const cell = new Cell();
@@ -61,10 +70,17 @@ class NftItem extends Contract {
         cell.bits.writeAddress(params.responseAddress);
         cell.bits.writeBit(false); // null custom_payload
         cell.bits.writeCoins(params.forwardAmount || new BN(0));
-        cell.bits.writeBit(false); // forward_payload in this slice, not separate cell
-
         if (params.forwardPayload) {
-            cell.bits.writeBytes(params.forwardPayload);
+            if (params.forwardPayload.refs) { // is Cell
+                cell.bits.writeBit(true); // true Either - write forward_payload in separate cell
+                cell.refs.push(params.forwardPayload);
+            } else { // Uint8Array
+                cell.bits.writeBit(false); // false Either - write forward_payload in current slice
+                cell.bits.writeBytes(params.forwardPayload);
+                // todo: support write snake bytes
+            }
+        } else {
+            cell.bits.writeBit(false); // false Either for empty payload
         }
         return cell;
     }

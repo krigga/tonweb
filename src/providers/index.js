@@ -1,3 +1,5 @@
+const {Cell} = require("../boc");
+const {base64ToBytes} = require("../utils");
 const HttpProviderUtils = require('./HttpProviderUtils').default;
 
 if (typeof fetch === 'undefined') {
@@ -86,9 +88,9 @@ class HttpProvider {
      * Use this method to get transaction history of a given address.
      * @param address   {string}
      * @param limit?    {number}
-     * @param lt?    {number}
+     * @param lt?    {number | string}
      * @param hash?    {string}
-     * @param to_lt?    {number}
+     * @param to_lt?    {number | string}
      * @return array of transaction object
      */
     async getTransactions(address, limit = 20, lt = undefined, hash = undefined, to_lt = undefined, archival = undefined) {
@@ -160,6 +162,22 @@ class HttpProvider {
     }
 
     /**
+     * Returns network config param
+     * @param configParamId {number}
+     * @return {Cell}
+     */
+    async getConfigParam(configParamId) {
+        const rawResult = await this.send('getConfigParam', {
+            config_id: configParamId
+        });
+        if (rawResult['@type'] !== 'configInfo') throw new Error('getConfigParam expected type configInfo');
+        if (!rawResult.config) throw new Error('getConfigParam expected config');
+        if (rawResult.config['@type'] !== 'tvm.cell') throw new Error('getConfigParam expected type tvm.cell');
+        if (!rawResult.config.bytes) throw new Error('getConfigParam expected bytes');
+        return Cell.oneFromBoc(base64ToBytes(rawResult.config.bytes));
+    }
+
+    /**
      * Returns ID's of last and init block of masterchain
      */
     async getMasterchainInfo() {
@@ -181,21 +199,30 @@ class HttpProvider {
      * @param workchain {number}
      * @param shardId   {string}
      * @param shardBlockNumber  {number}
+     * @param limit? {number}
+     * @param afterLt? {number} pivot transaction LT to start with
+     * @param addressHash? {string} take the account address where the pivot transaction took place, convert it to raw format and take the part of the address without the workchain (address hash)
      */
-    async getBlockTransactions(workchain, shardId, shardBlockNumber) {
+    async getBlockTransactions(workchain, shardId, shardBlockNumber, limit, afterLt, addressHash) {
         return this.send('getBlockTransactions', {
             workchain: workchain,
             shard: shardId,
-            seqno: shardBlockNumber
+            seqno: shardBlockNumber,
+            count: limit,
+            after_lt: afterLt,
+            after_hash: addressHash
         });
     }
 
     /**
      * Returns transactions hashes included in this masterhcain block
      * @param masterchainBlockNumber  {number}
+     * @param limit? {number}
+     * @param afterLt? {number | string} pivot transaction LT to start with
+     * @param addressHash? {string}  take the account address where the pivot transaction took place, convert it to raw format and take the part of the address without the workchain (address hash)
      */
-    async getMasterchainBlockTransactions(masterchainBlockNumber) {
-        return this.getBlockTransactions(-1, SHARD_ID_ALL, masterchainBlockNumber);
+    async getMasterchainBlockTransactions(masterchainBlockNumber, limit, afterLt, addressHash) {
+        return this.getBlockTransactions(-1, SHARD_ID_ALL, masterchainBlockNumber, limit, afterLt, addressHash);
     }
 
     /**

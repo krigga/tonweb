@@ -6,14 +6,17 @@ const HttpProvider = require("./providers").default;
 const {Contract} = require("./contract");
 const Wallets = require("./contract/wallet").default;
 const LockupWallets = require("./contract/lockup").default;
+const HighloadWallets = require("./contract/highloadWallet").default;
 const NFT = require("./contract/token/nft").default;
 const JETTON = require("./contract/token/ft").default;
 const {BlockSubscription, InMemoryBlockStorage} = require("./providers/blockSubscription");
 const {SubscriptionContract} = require("./contract/subscription/index");
+const {Payments, PaymentChannel} = require("./contract/payments/index");
 const TransportWebUSB = require("@ledgerhq/hw-transport-webusb").default;
 const TransportWebHID = require("@ledgerhq/hw-transport-webhid").default;
 const BluetoothTransport = require("@ledgerhq/hw-transport-web-ble").default;
-const version = '0.0.40';
+const {Dns, DnsCollection, DnsItem} = require("./contract/dns").default;
+const version = '0.0.66';
 
 class TonWeb {
     constructor(provider) {
@@ -26,7 +29,9 @@ class TonWeb {
         this.InMemoryBlockStorage = InMemoryBlockStorage;
 
         this.provider = provider || new HttpProvider();
+        this.dns = new Dns(this.provider);
         this.wallet = new Wallets(this.provider);
+        this.payments = new Payments(this.provider);
         this.lockupWallet = LockupWallets;
     }
 
@@ -92,5 +97,11 @@ TonWeb.token = {
     ft: JETTON,
     jetton: JETTON,
 }
+TonWeb.HighloadWallets = HighloadWallets;
+TonWeb.dns = Dns;
+TonWeb.dns.DnsCollection = DnsCollection;
+TonWeb.dns.DnsItem = DnsItem;
+TonWeb.payments = Payments;
+TonWeb.payments.PaymentChannel = PaymentChannel;
 
 module.exports = TonWeb;
