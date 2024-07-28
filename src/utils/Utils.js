@@ -26,19 +26,27 @@ function sha256(bytes) {
 
 /**
  * from coins to nanocoins
- * @param amount {number | BN | string}
+ * @param amount {BN | string}
  * @return {BN}
  */
 function toNano(amount) {
+    if (!BN.isBN(amount) && !(typeof amount === 'string')) {
+        throw new Error('Please pass numbers as strings or BN objects to avoid precision errors.');
+    }
+
     return ethunit.toWei(amount, 'gwei');
 }
 
 /**
  * from nanocoins to coins
- * @param amount  {number | BN | string}
+ * @param amount  {BN | string}
  * @return {string}
  */
 function fromNano(amount) {
+    if (!BN.isBN(amount) && !(typeof amount === 'string')) {
+        throw new Error('Please pass numbers as strings or BN objects to avoid precision errors.');
+    }
+
     return ethunit.fromWei(amount, 'gwei');
 }
 
@@ -296,6 +304,28 @@ function readNBytesUIntFromArray(n, ui8array) {
     return res;
 }
 
+/**
+ * @param seed  {Uint8Array}
+ * @returns {nacl.SignKeyPair}
+ */
+function keyPairFromSeed(seed) {
+    return nacl.sign.keyPair.fromSeed(seed);
+}
+
+/**
+ * @returns {nacl.SignKeyPair}
+ */
+function newKeyPair() {
+    return nacl.sign.keyPair();
+}
+
+/**
+ * @returns {Uint8Array}
+ */
+function newSeed() {
+    return nacl.sign.keyPair().secretKey.slice(0, 32);
+}
+
 module.exports = {
     BN,
     nacl,
@@ -313,5 +343,8 @@ module.exports = {
     base64toString,
     stringToBase64,
     compareBytes,
-    readNBytesUIntFromArray
+    readNBytesUIntFromArray,
+    keyPairFromSeed,
+    newKeyPair,
+    newSeed
 };
